@@ -1,11 +1,18 @@
+# Load required packages
 Packages <- c("cluster", "ggplot2", "h2o", "fpc")
 lapply(Packages, library, character.only = TRUE)
 
+#Initialize H20 package
 localH2o<-h2o.init()
+
+#Read data and initialize variable dataframe 
 prostate.hex<- h2o.uploadFile(path = system.file ("extdata", "prostate.csv", package="h2o"), destination_frame = "prostate")
 summary(prostate.hex)
 
+#Define dataframe column types
 dfK<-data.frame(Clusters=numeric(),TotWithinSS=numeric(),BetweenSS=numeric(),TotSS=numeric(),stringsAsFactors = FALSE)
+
+#Build a scree-plot
 for (i in 2:50) {
   kmeans_imp_hex <- h2o.kmeans(training_frame = prostate.hex, k = i, max_iterations = 1000, standardize = T)
   dfK[i-1,1] <- i
@@ -14,9 +21,12 @@ for (i in 2:50) {
   dfK[i-1,4] <- getTotSS(kmeans_imp_hex)
 }
 plot(dfK$Clusters, dfK$TotWithinSS, type="l")
+
+#Running K-means algorithm on optimal cluster
 prostate.km<- h2o.kmeans(prostate.hex, k = 10, x = c("AGE","RACE","GLEASON","CAPSULE","DCAPS"))
 summary(prostate.km)
 
+#Predicting
 prd<-h2o.predict(newdata=prostate.hex,prostate.km)
 Cluspred<-h2o.cbind(prostate.hex, prd)
 Cluspred.data<-as.data.frame(Cluspred)
@@ -25,6 +35,7 @@ ggplot(prostate.data,aes(prostate.data$AGE,Cluspred.data$GLEASON))+geom_text(aes
 prostate.data<- as.data.frame(prostate.hex)
 prostate.ctrs <- as.data.frame(h2o.centers(prostate.km))
 
+#Summary Plots (Pred. data)
 ggplot(mapping=aes(x = prostate.ctrs$race,prostate.ctrs$age))+geom_point(color="blue")+ggtitle("K-means centers for Prostate Disease")+xlab("Race")+ylab("Age")
 
 ggplot(mapping=aes(x = prostate.ctrs$centroid,prostate.ctrs$capsule))+geom_point(color="blue")+ggtitle("K-means centers for Prostate Disease")+xlab("Centroid")+ylab("Capsule")
